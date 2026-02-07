@@ -3,10 +3,14 @@ import numpy as np
 from helpers import relative, relativeT
 
 
-def gaze(frame, points):
+def gaze(frame, landmarks):
     """
     The gaze function gets an image and face landmarks from mediapipe framework.
     The function draws the gaze direction into the frame.
+    
+    Args:
+        frame: OpenCV image frame
+        landmarks: List of NormalizedLandmark objects from MediaPipe FaceLandmarker
     """
 
     '''
@@ -15,12 +19,12 @@ def gaze(frame, points):
     at (x,y) format
     '''
     image_points = np.array([
-        relative(points.landmark[4], frame.shape),  # Nose tip
-        relative(points.landmark[152], frame.shape),  # Chin
-        relative(points.landmark[263], frame.shape),  # Left eye left corner
-        relative(points.landmark[33], frame.shape),  # Right eye right corner
-        relative(points.landmark[287], frame.shape),  # Left Mouth corner
-        relative(points.landmark[57], frame.shape)  # Right mouth corner
+        relative(landmarks[4], frame.shape),  # Nose tip
+        relative(landmarks[152], frame.shape),  # Chin
+        relative(landmarks[263], frame.shape),  # Left eye left corner
+        relative(landmarks[33], frame.shape),  # Right eye right corner
+        relative(landmarks[287], frame.shape),  # Left Mouth corner
+        relative(landmarks[57], frame.shape)  # Right mouth corner
     ], dtype="double")
 
     '''
@@ -29,12 +33,12 @@ def gaze(frame, points):
     at (x,y,0) format
     '''
     image_points1 = np.array([
-        relativeT(points.landmark[4], frame.shape),  # Nose tip
-        relativeT(points.landmark[152], frame.shape),  # Chin
-        relativeT(points.landmark[263], frame.shape),  # Left eye, left corner
-        relativeT(points.landmark[33], frame.shape),  # Right eye, right corner
-        relativeT(points.landmark[287], frame.shape),  # Left Mouth corner
-        relativeT(points.landmark[57], frame.shape)  # Right mouth corner
+        relativeT(landmarks[4], frame.shape),  # Nose tip
+        relativeT(landmarks[152], frame.shape),  # Chin
+        relativeT(landmarks[263], frame.shape),  # Left eye, left corner
+        relativeT(landmarks[33], frame.shape),  # Right eye, right corner
+        relativeT(landmarks[287], frame.shape),  # Left Mouth corner
+        relativeT(landmarks[57], frame.shape)  # Right mouth corner
     ], dtype="double")
 
     # 3D model points.
@@ -67,11 +71,11 @@ def gaze(frame, points):
 
     dist_coeffs = np.zeros((4, 1))  # Assuming no lens distortion
     (success, rotation_vector, translation_vector) = cv2.solvePnP(model_points, image_points, camera_matrix,
-                                                                  dist_coeffs, flags=cv2.cv2.SOLVEPNP_ITERATIVE)
+                                                                  dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
 
     # 2d pupil location
-    left_pupil = relative(points.landmark[468], frame.shape)
-    right_pupil = relative(points.landmark[473], frame.shape)
+    left_pupil = relative(landmarks[468], frame.shape)
+    right_pupil = relative(landmarks[473], frame.shape)
 
     # Transformation between image point to world point
     _, transformation, _ = cv2.estimateAffine3D(image_points1, model_points)  # image to world transformation
@@ -84,10 +88,10 @@ def gaze(frame, points):
         S = Eye_ball_center_left + (pupil_world_cord - Eye_ball_center_left) * 10
 
         # Project a 3D gaze direction onto the image plane.
-        (eye_pupil2D, _) = cv2.projectPoints((int(S[0]), int(S[1]), int(S[2])), rotation_vector,
+        (eye_pupil2D, _) = cv2.projectPoints((int(S[0, 0]), int(S[1, 0]), int(S[2, 0])), rotation_vector,
                                              translation_vector, camera_matrix, dist_coeffs)
         # project 3D head pose into the image plane
-        (head_pose, _) = cv2.projectPoints((int(pupil_world_cord[0]), int(pupil_world_cord[1]), int(40)),
+        (head_pose, _) = cv2.projectPoints((int(pupil_world_cord[0, 0]), int(pupil_world_cord[1, 0]), int(40)),
                                            rotation_vector,
                                            translation_vector, camera_matrix, dist_coeffs)
         # correct gaze for head rotation
